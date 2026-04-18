@@ -43,6 +43,8 @@ func New(cfg *config.Config, queries *dbgen.Queries, poller auth.Poller) (*Bot, 
 	return bot, nil
 }
 
+func (b *Bot) Tele() *tele.Bot { return b.tele }
+
 func (b *Bot) Start() {
 	b.tele.Start()
 }
