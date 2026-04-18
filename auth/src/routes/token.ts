@@ -15,7 +15,10 @@ app.get("/", async (c) => {
 
   await deleteToken(c.env.KV, state);
 
-  return c.json({ token: entry.token });
+  return c.json({
+    access_token: entry.token,
+    github_login: entry.githubLogin,
+  });
 });
 
 export default app;
