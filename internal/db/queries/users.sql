@@ -1,6 +1,9 @@
 -- name: GetUserByTelegramID :one
 SELECT * FROM users WHERE telegram_id = ? LIMIT 1;
 
+-- name: ListUsersWithToken :many
+SELECT * FROM users WHERE github_token IS NOT NULL;
+
 -- name: UpsertUser :one
 INSERT INTO users (telegram_id, github_login, github_token, updated_at)
 VALUES (?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
