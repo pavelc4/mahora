@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS notifications;
+DROP TABLE IF EXISTS repos;
+DROP TABLE IF EXISTS users;
