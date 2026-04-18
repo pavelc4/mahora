@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 )
@@ -20,14 +21,15 @@ type TokenResponse struct {
 }
 
 type Poller interface {
-	Poll(ctx context.Context, stateToken string) (*TokenResponse, error)
+	Poll(ctx context.Context, stateToken string, telegramID int64) (*TokenResponse, error)
 }
 
 type workerPoller struct {
-	client    *http.Client
-	workerURL string
-	secret    string
-	interval  time.Duration
+	client     *http.Client
+	workerURL  string
+	secret     string
+	interval   time.Duration
+	telegramID int64
 }
 
 type Option func(*workerPoller)
@@ -53,7 +55,7 @@ func NewPoller(workerURL, secret string, opts ...Option) Poller {
 	return p
 }
 
-func (p *workerPoller) Poll(ctx context.Context, stateToken string) (*TokenResponse, error) {
+func (p *workerPoller) Poll(ctx context.Context, stateToken string, telegramID int64) (*TokenResponse, error) {
 	ticker := time.NewTicker(p.interval)
 	defer ticker.Stop()
 
@@ -61,9 +63,8 @@ func (p *workerPoller) Poll(ctx context.Context, stateToken string) (*TokenRespo
 		select {
 		case <-ctx.Done():
 			return nil, fmt.Errorf("auth.Poll: %w", ErrPollTimeout)
-
 		case <-ticker.C:
-			tok, err := p.fetchToken(ctx, stateToken)
+			tok, err := p.fetchToken(ctx, stateToken, telegramID)
 			if err == nil {
 				return tok, nil
 			}
@@ -77,9 +78,11 @@ func (p *workerPoller) Poll(ctx context.Context, stateToken string) (*TokenRespo
 		}
 	}
 }
-func (p *workerPoller) fetchToken(ctx context.Context, stateToken string) (*TokenResponse, error) {
-	url := fmt.Sprintf("%s/auth/token?state=%s", p.workerURL, stateToken)
 
+func (p *workerPoller) fetchToken(ctx context.Context, stateToken string, telegramID int64) (*TokenResponse, error) {
+	url := fmt.Sprintf("%s/auth/token?state=%s&tid=%d", p.workerURL, stateToken, telegramID)
+
+	slog.Debug("fetchToken", "url", url) // tambah ini
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("fetchToken build request: %w", err)
@@ -94,7 +97,10 @@ func (p *workerPoller) fetchToken(ctx context.Context, stateToken string) (*Toke
 
 	handlers := map[int]func() (*TokenResponse, error){
 		http.StatusAccepted: func() (*TokenResponse, error) {
-			return nil, ErrTokenNotReady
+			return nil, ErrTokenNotReady // 202 = explicitly pending
+		},
+		http.StatusNotFound: func() (*TokenResponse, error) {
+			return nil, ErrTokenNotReady // 404 = belum ada di KV, keep polling
 		},
 		http.StatusOK: func() (*TokenResponse, error) {
 			return decodeTokenResponse(resp)
