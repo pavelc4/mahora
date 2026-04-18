@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	tele "gopkg.in/telebot.v3"
 
 	dbgen "github.com/pavelc4/mahora/internal/db/gen"
@@ -34,8 +33,21 @@ func (b *Bot) handleHelp(c tele.Context) error {
 }
 
 func (b *Bot) handleLogin(c tele.Context) error {
-	stateToken := uuid.NewString()
-	loginURL := fmt.Sprintf("%s/auth/github?state=%s", b.cfg.WorkerURL, stateToken)
+	telegramID := c.Sender().ID
+
+	stateToken, err := generateState(b.cfg.WorkerSecret, telegramID)
+	if err != nil {
+		return fmt.Errorf("handleLogin generate state: %w", err)
+	}
+
+	slog.Info("handleLogin", "telegram_id", telegramID)
+
+	loginURL := fmt.Sprintf(
+		"https://github.com/login/oauth/authorize?client_id=%s&redirect_uri=%s/callback&scope=repo,notifications&state=%s",
+		b.cfg.GitHubClientID,
+		b.cfg.WorkerURL,
+		stateToken,
+	)
 
 	if err := c.Send(fmt.Sprintf(
 		"🔐 Click the link below to login with GitHub:\n\n<a href=\"%s\">Authorize Mahora</a>\n\n<i>Link expires in 5 minutes.</i>",
@@ -44,15 +56,17 @@ func (b *Bot) handleLogin(c tele.Context) error {
 		return fmt.Errorf("handleLogin send: %w", err)
 	}
 
-	go b.pollAndSaveToken(c.Sender().ID, stateToken)
+	// extract UUID saja buat polling (format: uuid:tid:sig)
+	parts := strings.SplitN(stateToken, ":", 3)
+	go b.pollAndSaveToken(telegramID, parts[0])
 	return nil
 }
-
 func (b *Bot) pollAndSaveToken(telegramID int64, stateToken string) {
+	slog.Info("pollAndSaveToken started", "telegram_id", telegramID, "state", stateToken) // tambah
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	tok, err := b.poller.Poll(ctx, stateToken)
+	tok, err := b.poller.Poll(ctx, stateToken, telegramID)
 	if err != nil {
 		slog.Warn("pollAndSaveToken timeout", "telegram_id", telegramID, "err", err)
 		b.tele.Send(
