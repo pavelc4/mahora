@@ -1,17 +1,19 @@
-import { Hono } from "hono";
-import { Bindings } from "../types";
-import { generateHMAC } from "../lib/hmac";
-import { v4 as uuidv4 } from "uuid";
-
-const app = new Hono<{ Bindings: Bindings }>();
+export default app;
 
 app.get("/", async (c) => {
-  const tid = c.req.query("tid");
-  if (!tid) return c.json({ error: "missing telegram_id" }, 400);
+  const { tid, state } = c.req.query();
+  if (!tid || !state) return c.json({ error: "missing params" }, 400);
 
-  const uuid = uuidv4();
-  const sig = await generateHMAC(c.env.WORKER_SECRET, `${uuid}:${tid}`);
-  const state = `${uuid}:${tid}:${sig}`;
+  const parts = state.split(":");
+  if (parts.length !== 3) return c.json({ error: "invalid state" }, 400);
+  const [uuid, stateTid, sig] = parts;
+
+  const valid = await verifyHMAC(
+    c.env.WORKER_SECRET,
+    `${uuid}:${stateTid}`,
+    sig,
+  );
+  if (!valid) return c.json({ error: "invalid state signature" }, 403);
 
   const params = new URLSearchParams({
     client_id: c.env.GITHUB_CLIENT_ID,
@@ -22,5 +24,3 @@ app.get("/", async (c) => {
 
   return c.redirect(`https://github.com/login/oauth/authorize?${params}`);
 });
-
-export default app;
