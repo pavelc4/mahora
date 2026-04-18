@@ -1,0 +1,18 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "mahora-auth",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-04-18",
+  "compatibility_flags": ["nodejs_compat"],
+  "kv_namespaces": [
+    {
+      "binding": "KV",
+      "id": "03fca294d56f428e81e9d7cea7790d42",
+      "preview_id": "5084c80180d148168f00b49997ac34ac",
+    },
+  ],
+  "vars": {
+    "GITHUB_CLIENT_ID": "",
+    "WORKER_BASE_URL": "https://mahora.pavelc4.workers.dev",
+  },
+}
