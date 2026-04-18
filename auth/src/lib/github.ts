@@ -24,3 +24,22 @@ export async function exchangeCode(
 
   return data.access_token;
 }
+export async function fetchGitHubUser(
+  accessToken: string,
+): Promise<{ login: string }> {
+  const res = await fetch("https://api.github.com/user", {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: "application/vnd.github+json",
+      "User-Agent": "mahora-bot",
+      "X-GitHub-Api-Version": "2022-11-28",
+    },
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`fetchGitHubUser: ${res.status} ${body}`);
+  }
+
+  return res.json() as Promise<{ login: string }>;
+}
