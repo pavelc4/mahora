@@ -12,7 +12,6 @@
     },
   ],
   "vars": {
-    "GITHUB_CLIENT_ID": "",
-    "WORKER_BASE_URL": "https://mahora.pavelc4.workers.dev",
+    "WORKER_BASE_URL": "https://mahora-auth.pavelc4.workers.dev",
   },
 }
