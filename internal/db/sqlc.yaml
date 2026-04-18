@@ -9,4 +9,3 @@ sql:
         out: "./gen"
         emit_json_tags: true
         emit_prepared_queries: false
-        null_str: "sql.NullString"
