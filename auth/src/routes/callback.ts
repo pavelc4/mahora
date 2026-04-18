@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { Bindings } from "../types";
 import { verifyHMAC } from "../lib/hmac";
-import { exchangeCode } from "../lib/github";
+import { exchangeCode, fetchGitHubUser } from "../lib/github";
 import { saveToken } from "../lib/kv";
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -29,7 +29,15 @@ app.get("/", async (c) => {
     return c.json({ error: "failed to exchange code" }, 500);
   }
 
-  await saveToken(c.env.KV, uuid, { token, telegramId: tid });
+  let githubLogin: string;
+  try {
+    const user = await fetchGitHubUser(token);
+    githubLogin = user.login;
+  } catch (e) {
+    return c.json({ error: "failed to fetch github user" }, 500);
+  }
+
+  await saveToken(c.env.KV, uuid, { token, telegramId: tid, githubLogin });
 
   // UI yang sudah dipercantik dengan Tailwind CSS & Material 3 vibes
   return c.html(`
