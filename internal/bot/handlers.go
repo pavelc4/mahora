@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -92,13 +93,98 @@ func (b *Bot) handleLogout(c tele.Context) error {
 }
 
 func (b *Bot) handleWatch(c tele.Context) error {
-	return c.Send("🚧 <i>Coming soon.</i>", htmlOpt)
+	arg := c.Message().Payload
+	owner, name, err := parseRepoArg(arg)
+	if err != nil {
+		return c.Send(
+			"⚠️ Usage: /watch <code>owner/repo</code>\nExample: /watch golang/go",
+			htmlOpt,
+		)
+	}
+
+	user, err := b.queries.GetUserByTelegramID(context.Background(), c.Sender().ID)
+	if err != nil {
+		return fmt.Errorf("handleWatch get user: %w", err)
+	}
+
+	_, err = b.queries.AddRepo(context.Background(), dbgen.AddRepoParams{
+		UserID: user.ID,
+		Owner:  owner,
+		Name:   name,
+	})
+	if err != nil {
+		return fmt.Errorf("handleWatch add repo: %w", err)
+	}
+
+	return c.Send(
+		fmt.Sprintf("👁 Watching <code>%s/%s</code>", owner, name),
+		htmlOpt,
+	)
 }
 
 func (b *Bot) handleUnwatch(c tele.Context) error {
-	return c.Send("🚧 <i>Coming soon.</i>", htmlOpt)
+	arg := c.Message().Payload
+	owner, name, err := parseRepoArg(arg)
+	if err != nil {
+		return c.Send(
+			"⚠️ Usage: /unwatch <code>owner/repo</code>\nExample: /unwatch golang/go",
+			htmlOpt,
+		)
+	}
+
+	user, err := b.queries.GetUserByTelegramID(context.Background(), c.Sender().ID)
+	if err != nil {
+		return fmt.Errorf("handleUnwatch get user: %w", err)
+	}
+
+	if err = b.queries.RemoveRepo(context.Background(), dbgen.RemoveRepoParams{
+		UserID: user.ID,
+		Owner:  owner,
+		Name:   name,
+	}); err != nil {
+		return fmt.Errorf("handleUnwatch remove repo: %w", err)
+	}
+
+	return c.Send(
+		fmt.Sprintf("🗑 Stopped watching <code>%s/%s</code>", owner, name),
+		htmlOpt,
+	)
 }
 
 func (b *Bot) handleList(c tele.Context) error {
-	return c.Send("🚧 <i>Coming soon.</i>", htmlOpt)
+	user, err := b.queries.GetUserByTelegramID(context.Background(), c.Sender().ID)
+	if err != nil {
+		return fmt.Errorf("handleList get user: %w", err)
+	}
+
+	repos, err := b.queries.ListReposByUser(context.Background(), user.ID)
+	if err != nil {
+		return fmt.Errorf("handleList list repos: %w", err)
+	}
+
+	if len(repos) == 0 {
+		return c.Send(
+			"📭 You're not watching any repos yet.\n\nUse /watch <code>owner/repo</code> to get started.",
+			htmlOpt,
+		)
+	}
+
+	return c.Send(buildRepoList(repos), htmlOpt)
+}
+
+func parseRepoArg(arg string) (owner, name string, err error) {
+	parts := strings.SplitN(strings.TrimSpace(arg), "/", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return "", "", fmt.Errorf("invalid repo format: %q", arg)
+	}
+	return parts[0], parts[1], nil
+}
+
+func buildRepoList(repos []dbgen.Repo) string {
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("👁 <b>Watching %d repo(s):</b>\n\n", len(repos)))
+	for _, r := range repos {
+		sb.WriteString(fmt.Sprintf("• <code>%s/%s</code>\n", r.Owner, r.Name))
+	}
+	return sb.String()
 }

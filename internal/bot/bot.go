@@ -55,17 +55,17 @@ func (b *Bot) registerRoutes() {
 	b.tele.Use(middleware.Recover())
 	b.tele.Use(b.logMiddleware())
 
-	routes := map[string]tele.HandlerFunc{
-		"/start":   b.handleStart,
-		"/help":    b.handleHelp,
-		"/login":   b.handleLogin,
+	b.tele.Handle("/start", b.handleStart)
+	b.tele.Handle("/help", b.handleHelp)
+	b.tele.Handle("/login", b.handleLogin)
+
+	protected := map[string]tele.HandlerFunc{
 		"/logout":  b.handleLogout,
 		"/watch":   b.handleWatch,
 		"/unwatch": b.handleUnwatch,
 		"/list":    b.handleList,
 	}
-
-	for cmd, handler := range routes {
-		b.tele.Handle(cmd, handler)
+	for cmd, handler := range protected {
+		b.tele.Handle(cmd, b.requireAuth(handler))
 	}
 }
