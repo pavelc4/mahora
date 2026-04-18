@@ -1,3 +1,7 @@
 
 # sqlc generated files
-internal/db/gen/
+internal/db/gen
+.env
+*.db
+*.db-shm
+*.db-wal
