@@ -7,11 +7,11 @@ import (
 )
 
 type Config struct {
-	TelegramToken      string `env:"TELEGRAM_TOKEN"       env-required:"true"`
-	GitHubClientID     string `env:"GITHUB_CLIENT_ID"     env-required:"true"`
-	GitHubClientSecret string `env:"GITHUB_CLIENT_SECRET" env-required:"true"`
-	WorkerURL          string `env:"WORKER_URL"           env-required:"true"`
-	WorkerSecret       string `env:"WORKER_SECRET"        env-required:"true"`
+	TelegramToken      string `env:"BOT_TOKEN"            env-required:"true"`
+	GitHubClientID     string `env:"GITHUB_CLIENT_ID"`
+	GitHubClientSecret string `env:"GITHUB_CLIENT_SECRET"`
+	WorkerURL          string `env:"WORKER_URL"`
+	WorkerSecret       string `env:"WORKER_SECRET"`
 	DBPath             string `env:"DB_PATH"              env-default:"./mahora.db"`
 	Env                string `env:"ENV"                  env-default:"development"`
 	LogLevel           string `env:"LOG_LEVEL"            env-default:"info"`

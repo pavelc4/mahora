@@ -7,7 +7,9 @@ import (
 )
 
 func NewLogger(cfg *Config) *slog.Logger {
-	return slog.New(newHandler(cfg))
+	logger := slog.New(newHandler(cfg))
+	slog.SetDefault(logger)
+	return logger
 }
 
 func newHandler(cfg *Config) slog.Handler {
