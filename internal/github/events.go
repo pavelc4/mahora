@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 )
 
 var (
@@ -66,23 +67,22 @@ type pushPayload struct {
 	} `json:"commits"`
 }
 
-func parsePullRequest(e Event) (*Notification, error) {
-	var p pullRequestPayload
+func parsePush(e Event) (*Notification, error) {
+	var p pushPayload
 	if err := json.Unmarshal(e.Payload, &p); err != nil {
-		return nil, fmt.Errorf("parsePullRequest: %w", err)
+		return nil, fmt.Errorf("parsePush: %w", err)
 	}
-	if p.Action != "closed" || !p.PullRequest.Merged {
+	if !strings.HasPrefix(p.Ref, "refs/heads/") {
 		return nil, nil
 	}
+	if len(p.Commits) == 0 {
+		return nil, nil
+	}
+	branch := strings.TrimPrefix(p.Ref, "refs/heads/")
 	return &Notification{
 		EventID: e.ID,
-		Type:    "PullRequestEvent",
-		Message: fmt.Sprintf(
-			"🔀 PR merged by <b>%s</b>\n<a href=\"%s\">%s</a>",
-			p.PullRequest.User.Login,
-			p.PullRequest.HTMLURL,
-			p.PullRequest.Title,
-		),
+		Type:    "PushEvent",
+		Message: fmt.Sprintf("📦 %d new commit(s) to <code>%s</code>", len(p.Commits), branch),
 	}, nil
 }
 
@@ -106,21 +106,47 @@ func parseRelease(e Event) (*Notification, error) {
 	}, nil
 }
 
-func parsePush(e Event) (*Notification, error) {
-	var p pushPayload
+func parsePullRequest(e Event) (*Notification, error) {
+	var p pullRequestPayload
 	if err := json.Unmarshal(e.Payload, &p); err != nil {
-		return nil, fmt.Errorf("parsePush: %w", err)
+		return nil, fmt.Errorf("parsePullRequest: %w", err)
 	}
-	if len(p.Commits) == 0 {
+
+	switch p.Action {
+	case "opened":
+		emoji := "🔔"
+		if strings.HasPrefix(p.PullRequest.User.Login, "dependabot") ||
+			strings.HasPrefix(p.PullRequest.User.Login, "renovate") {
+			emoji = "📦"
+		}
+		return &Notification{
+			EventID: e.ID,
+			Type:    "PullRequestEvent",
+			Message: fmt.Sprintf(
+				"%s PR opened by <b>%s</b>\n<a href=\"%s\">%s</a>",
+				emoji,
+				p.PullRequest.User.Login,
+				p.PullRequest.HTMLURL,
+				p.PullRequest.Title,
+			),
+		}, nil
+
+	case "closed":
+		if !p.PullRequest.Merged {
+			return nil, nil
+		}
+		return &Notification{
+			EventID: e.ID,
+			Type:    "PullRequestEvent",
+			Message: fmt.Sprintf(
+				"🔀 PR merged by <b>%s</b>\n<a href=\"%s\">%s</a>",
+				p.PullRequest.User.Login,
+				p.PullRequest.HTMLURL,
+				p.PullRequest.Title,
+			),
+		}, nil
+
+	default:
 		return nil, nil
 	}
-	return &Notification{
-		EventID: e.ID,
-		Type:    "PushEvent",
-		Message: fmt.Sprintf(
-			"📦 %d new commit(s) to <code>%s</code>",
-			len(p.Commits),
-			p.Ref,
-		),
-	}, nil
 }
