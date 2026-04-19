@@ -61,6 +61,7 @@ func (p *Poller) Run(ctx context.Context) {
 }
 
 func (p *Poller) poll(ctx context.Context) error {
+	_ = p.queries.DeleteOldNotifications(ctx)
 	users, err := p.queries.ListUsersWithToken(ctx)
 	if err != nil {
 		return fmt.Errorf("poll list users: %w", err)
