@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
 	tele "gopkg.in/telebot.v3"
@@ -16,6 +17,8 @@ type Poller struct {
 	queries  *dbgen.Queries
 	bot      *tele.Bot
 	interval time.Duration
+	clients  map[int64]*Client
+	mu       sync.Mutex
 }
 
 func NewPoller(queries *dbgen.Queries, bot *tele.Bot, interval time.Duration) *Poller {
@@ -23,7 +26,19 @@ func NewPoller(queries *dbgen.Queries, bot *tele.Bot, interval time.Duration) *P
 		queries:  queries,
 		bot:      bot,
 		interval: interval,
+		clients:  make(map[int64]*Client),
 	}
+}
+
+func (p *Poller) getClient(telegramID int64, token string) *Client {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if c, ok := p.clients[telegramID]; ok {
+		return c
+	}
+	c := NewClient(token)
+	p.clients[telegramID] = c
+	return c
 }
 
 func (p *Poller) Run(ctx context.Context) {
